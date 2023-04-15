@@ -106,18 +106,18 @@ int main(int argc, char* argv[])
 		exit(3);
 	}
 
+	int isSpacebarOn = 0;
+	int isDownOn = 0;
+	int frameCounter = 0;
+	Piece fallingPiece, nextPiece;
+
 	srand(time(0));
 	initMatrix();
-	Piece fallingPiece, nextPiece;
 	initPiece(&fallingPiece);
 	placePiece(&fallingPiece, matrix[BOARD_WIDTH / 2][BOARD_HEIGHT - 1].x1,
 			   matrix[BOARD_WIDTH / 2][BOARD_HEIGHT - 1].y1);
 	initPiece(&nextPiece);
-	placePiece(&nextPiece, RIGHT_X + 100, SCREEN_HEIGHT / 2);
-
-	int isSpacebarOn = 0;
-	int isDownOn = 0;
-	int frameCounter = 0;
+	placePiece(&nextPiece, RIGHT_X + 4 * SQUARE_SIZE, SCREEN_HEIGHT / 2);
 
 	do {
 		drawBoard();
@@ -131,11 +131,11 @@ int main(int argc, char* argv[])
 			moveDown(&fallingPiece, &nextPiece);
 			frameCounter = 0;
 		}
-		checkRows(matrix);
+		checkRows();
 		gfx_updateScreen();
 		frameCounter++;
 		SDL_Delay(DELAY);
-	} while (gfx_pollkey() != SDLK_ESCAPE && makeEndScreen(matrix));
+	} while (gfx_pollkey() != SDLK_ESCAPE && makeEndScreen());
 
 	return 0;
 }
@@ -275,7 +275,7 @@ int moveDown(Piece* piece, Piece* next)
 							   matrix[BOARD_WIDTH / 2][BOARD_HEIGHT - 1].x1,
 							   matrix[BOARD_WIDTH / 2][BOARD_HEIGHT - 1].y1);
 					initPiece(next);
-					createPieceArray(next);
+					placePiece(next, RIGHT_X + 4 * SQUARE_SIZE, SCREEN_HEIGHT / 2);
 					return 0;
 				}
 			}
