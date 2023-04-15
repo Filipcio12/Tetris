@@ -8,15 +8,15 @@
 #define BOARD_WIDTH 10
 #define BOARD_HEIGHT 20
 #define SQUARE_SIZE (600 / BOARD_HEIGHT)
-
 #define LEFT_X (SCREEN_WIDTH / 2 - SQUARE_SIZE * BOARD_WIDTH / 2)
 #define RIGHT_X (SCREEN_WIDTH / 2 + SQUARE_SIZE * BOARD_WIDTH / 2)
 #define TOP_Y (SCREEN_HEIGHT - SQUARE_SIZE * BOARD_HEIGHT)
 #define BOTTOM_Y (SCREEN_HEIGHT)
-
 #define TEXT_X_POSITION (SCREEN_WIDTH / 2 - 100)
 #define TEXT_Y_POSITION (SCREEN_HEIGHT / 2)
 #define TEXT_Y_SHIFT 50
+#define DELAY 40
+#define FALL_RATE 8
 
 int pieces[7 /*kind */][4 /* rotation */][4][4] = {
 	/* square */
@@ -75,8 +75,6 @@ typedef struct {
 	Square arr[4][4];
 } Piece;
 
-// Introduce global variable matrix
-
 Square matrix[BOARD_WIDTH][BOARD_HEIGHT];
 
 void initMatrix();
@@ -91,14 +89,13 @@ void placePiece(Piece* piece, int xCenter, int yCenter);
 void drawPiece(Piece* piece);
 void drawBoard();
 void addToMatrix(Piece* piece);
-void moveDown(Piece* piece, Piece* next);
+int moveDown(Piece* piece, Piece* next);
 void moveRight(Piece* piece);
 void moveLeft(Piece* piece);
 void rotate(Piece* piece, int n);
 void checkRotate(Piece* piece);
 void drop(Piece* piece, Piece* next);
-void takeUserInput(Piece* piece, Piece* next,
-				   int* isSpacebarOn, int* isDownOn);
+void takeUserInput(Piece* piece, Piece* next, int* isSpacebarOn, int* isDownOn);
 void clearRow(int y);
 void checkRows();
 int makeEndScreen();
@@ -127,18 +124,17 @@ int main(int argc, char* argv[])
 		drawMatrix();
 		drawPiece(&fallingPiece);
 		drawPiece(&nextPiece);
-		takeUserInput(&fallingPiece, &nextPiece, &isSpacebarOn,
-					  &isDownOn);
+		takeUserInput(&fallingPiece, &nextPiece, &isSpacebarOn, &isDownOn);
 		isSpacebarOn = gfx_isKeyDown(SDLK_SPACE);
 		isDownOn = gfx_isKeyDown(SDLK_DOWN);
-		if (frameCounter == 8) {
+		if (frameCounter == FALL_RATE) {
 			moveDown(&fallingPiece, &nextPiece);
 			frameCounter = 0;
 		}
 		checkRows(matrix);
 		gfx_updateScreen();
 		frameCounter++;
-		SDL_Delay(40);
+		SDL_Delay(DELAY);
 	} while (gfx_pollkey() != SDLK_ESCAPE && makeEndScreen(matrix));
 
 	return 0;
@@ -259,7 +255,7 @@ void addToMatrix(Piece* piece)
 			}
 }
 
-void moveDown(Piece* piece, Piece* next)
+int moveDown(Piece* piece, Piece* next)
 {
 	int i;
 	for (int j = 0; j < 4; j++)
@@ -280,7 +276,7 @@ void moveDown(Piece* piece, Piece* next)
 							   matrix[BOARD_WIDTH / 2][BOARD_HEIGHT - 1].y1);
 					initPiece(next);
 					createPieceArray(next);
-					return;
+					return 0;
 				}
 			}
 
@@ -290,6 +286,8 @@ void moveDown(Piece* piece, Piece* next)
 			piece->arr[i][j].y2 += SQUARE_SIZE;
 		}
 	piece->yCenter += SQUARE_SIZE;
+
+	return 1;
 }
 
 void moveRight(Piece* piece)
@@ -343,7 +341,8 @@ void moveLeft(Piece* piece)
 	piece->xCenter -= SQUARE_SIZE;
 }
 
-void rotate(Piece* piece, int n) {
+void rotate(Piece* piece, int n)
+{
 	piece->rotation = (piece->rotation + n) % 4;
 	int iCenter, jCenter;
 	findCenter(pieces[piece->kind][piece->rotation], &iCenter, &jCenter);
@@ -354,7 +353,7 @@ void rotate(Piece* piece, int n) {
 
 void checkRotate(Piece* piece)
 {
-	rotate(piece, 1);	
+	rotate(piece, 1);
 	int i;
 	for (int j = 0; j < 4; j++)
 		for (i = 0; i < 4; i++)
@@ -371,48 +370,18 @@ void checkRotate(Piece* piece)
 										 piece->arr[i][j].y1, &iSquare,
 										 &jSquare);
 
-				if (matrix[iSquare][jSquare].c != 0)
+				if ((iSquare > -1 && iSquare < BOARD_WIDTH && jSquare > -1 &&
+					 jSquare < BOARD_HEIGHT) && matrix[iSquare][jSquare].c != 0)
 					rotate(piece, 3);
 			}
 }
 
 void drop(Piece* piece, Piece* next)
 {
-	while (1) {
-		int i;
-		for (int j = 0; j < 4; j++)
-			for (i = 0; i < 4; i++)
-				if (piece->arr[i][j].c != 0) {
-					int iSquare;
-					int jSquare;
-					transformCoordstoIndices(piece->arr[i][j].x1,
-											 piece->arr[i][j].y1, &iSquare,
-											 &jSquare);
-					if (jSquare == 0 || (jSquare < BOARD_HEIGHT &&
-										 matrix[iSquare][jSquare - 1].c != 0)) {
-						addToMatrix(piece);
-						drawMatrix(matrix);
-						*piece = *next;
-						placePiece(
-							piece, matrix[BOARD_WIDTH / 2][BOARD_HEIGHT - 1].x1,
-							matrix[BOARD_WIDTH / 2][BOARD_HEIGHT - 1].y1);
-						initPiece(next);
-						createPieceArray(next);
-						return;
-					}
-				}
-
-		for (int j = 0; j < 4; j++)
-			for (i = 0; i < 4; i++) {
-				piece->arr[i][j].y1 += SQUARE_SIZE;
-				piece->arr[i][j].y2 += SQUARE_SIZE;
-			}
-		piece->yCenter += SQUARE_SIZE;
-	}
+	while (moveDown(piece, next));
 }
 
-void takeUserInput(Piece* piece, Piece* next,
-				   int* isSpacebarOn, int* isDownOn)
+void takeUserInput(Piece* piece, Piece* next, int* isSpacebarOn, int* isDownOn)
 {
 	if (gfx_isKeyDown(SDLK_RIGHT)) {
 		moveRight(piece);
