@@ -6,17 +6,17 @@
 #define SCREEN_WIDTH gfx_screenWidth()
 #define SCREEN_HEIGHT gfx_screenHeight()
 #define BOARD_WIDTH 10
-#define BOARD_HEIGTH 20
-#define SQUARE_SIZE (600 / BOARD_HEIGTH)
-
+#define BOARD_HEIGHT 20
+#define SQUARE_SIZE (600 / BOARD_HEIGHT)
 #define LEFT_X (SCREEN_WIDTH / 2 - SQUARE_SIZE * BOARD_WIDTH / 2)
 #define RIGHT_X (SCREEN_WIDTH / 2 + SQUARE_SIZE * BOARD_WIDTH / 2)
-#define TOP_Y (SCREEN_HEIGHT - SQUARE_SIZE * BOARD_HEIGTH)
+#define TOP_Y (SCREEN_HEIGHT - SQUARE_SIZE * BOARD_HEIGHT)
 #define BOTTOM_Y (SCREEN_HEIGHT)
-
 #define TEXT_X_POSITION (SCREEN_WIDTH / 2 - 100)
 #define TEXT_Y_POSITION (SCREEN_HEIGHT / 2)
 #define TEXT_Y_SHIFT 50
+#define DELAY 40
+#define FALL_RATE 8
 
 int pieces[7 /*kind */][4 /* rotation */][4][4] = {
 	/* square */
@@ -75,28 +75,30 @@ typedef struct {
 	Square arr[4][4];
 } Piece;
 
-void initMatrix(Square matrix[][BOARD_HEIGTH]);
+Square matrix[BOARD_WIDTH][BOARD_HEIGHT];
+
+void initMatrix();
 void transformCoordstoIndices(int x, int y, int* i, int* j);
 void drawSquare(Square square, enum color c);
 void drawSquare(Square square, enum color c);
-void drawMatrix(Square matrix[BOARD_WIDTH][BOARD_HEIGTH]);
+void drawMatrix();
 void findCenter(int arr[][4], int* iCenter, int* jCenter);
 void createPieceArray(Piece* piece);
 void initPiece(Piece* piece);
 void placePiece(Piece* piece, int xCenter, int yCenter);
 void drawPiece(Piece* piece);
 void drawBoard();
-void addToMatrix(Piece* piece, Square matrix[][BOARD_HEIGTH]);
-void moveDown(Piece* piece, Piece* next, Square matrix[][BOARD_HEIGTH]);
-void moveRight(Piece* piece, Square matrix[][BOARD_HEIGTH]);
-void moveLeft(Piece* piece, Square matrix[][BOARD_HEIGTH]);
-void rotate(Piece* piece, Square matrix[][BOARD_HEIGTH]);
-void drop(Piece* piece, Piece* next, Square matrix[][BOARD_HEIGTH]);
-void takeUserInput(Piece* piece, Piece* next, Square matrix[][BOARD_HEIGTH],
-				   int* isSpacebarOn, int* isDownOn);
-void clearRow(Square matrix[][BOARD_HEIGTH], int y);
-void checkRows(Square matrix[][BOARD_HEIGTH]);
-int makeEndScreen(Square matrix[][BOARD_HEIGTH]);
+void addToMatrix(Piece* piece);
+int moveDown(Piece* piece, Piece* next);
+void moveRight(Piece* piece);
+void moveLeft(Piece* piece);
+void rotate(Piece* piece, int n);
+void checkRotate(Piece* piece);
+void drop(Piece* piece, Piece* next);
+void takeUserInput(Piece* piece, Piece* next, int* isSpacebarOn, int* isDownOn);
+void clearRow(int y);
+void checkRows();
+int makeEndScreen();
 
 int main(int argc, char* argv[])
 {
@@ -104,46 +106,44 @@ int main(int argc, char* argv[])
 		exit(3);
 	}
 
-	srand(time(0));
-	Square matrix[BOARD_WIDTH][BOARD_HEIGTH];
-	initMatrix(matrix);
-	Piece fallingPiece, nextPiece;
-	initPiece(&fallingPiece);
-	placePiece(&fallingPiece, matrix[BOARD_WIDTH / 2][BOARD_HEIGTH - 1].x1,
-			   matrix[BOARD_WIDTH / 2][BOARD_HEIGTH - 1].y1);
-	initPiece(&nextPiece);
-	placePiece(&nextPiece, RIGHT_X + 100, SCREEN_HEIGHT / 2);
-
 	int isSpacebarOn = 0;
 	int isDownOn = 0;
 	int frameCounter = 0;
+	Piece fallingPiece, nextPiece;
+
+	srand(time(0));
+	initMatrix();
+	initPiece(&fallingPiece);
+	placePiece(&fallingPiece, matrix[BOARD_WIDTH / 2][BOARD_HEIGHT - 1].x1,
+			   matrix[BOARD_WIDTH / 2][BOARD_HEIGHT - 1].y1);
+	initPiece(&nextPiece);
+	placePiece(&nextPiece, RIGHT_X + 4 * SQUARE_SIZE, SCREEN_HEIGHT / 2);
 
 	do {
 		drawBoard();
-		drawMatrix(matrix);
+		drawMatrix();
 		drawPiece(&fallingPiece);
 		drawPiece(&nextPiece);
-		takeUserInput(&fallingPiece, &nextPiece, matrix, &isSpacebarOn,
-					  &isDownOn);
+		takeUserInput(&fallingPiece, &nextPiece, &isSpacebarOn, &isDownOn);
 		isSpacebarOn = gfx_isKeyDown(SDLK_SPACE);
 		isDownOn = gfx_isKeyDown(SDLK_DOWN);
-		if (frameCounter == 8) {
-			moveDown(&fallingPiece, &nextPiece, matrix);
+		if (frameCounter == FALL_RATE) {
+			moveDown(&fallingPiece, &nextPiece);
 			frameCounter = 0;
 		}
-		checkRows(matrix);
+		checkRows();
 		gfx_updateScreen();
 		frameCounter++;
-		SDL_Delay(40);
-	} while (gfx_pollkey() != SDLK_ESCAPE && makeEndScreen(matrix));
+		SDL_Delay(DELAY);
+	} while (gfx_pollkey() != SDLK_ESCAPE && makeEndScreen());
 
 	return 0;
 }
 
-void initMatrix(Square matrix[][BOARD_HEIGTH])
+void initMatrix()
 {
 	int i;
-	for (int j = 0; j < BOARD_HEIGTH; j++)
+	for (int j = 0; j < BOARD_HEIGHT; j++)
 		for (i = 0; i < BOARD_WIDTH; i++) {
 			matrix[i][j].c = BLACK;
 			matrix[i][j].x1 = LEFT_X + i * SQUARE_SIZE;
@@ -165,10 +165,10 @@ void drawSquare(Square square, enum color c)
 				   c);
 }
 
-void drawMatrix(Square matrix[BOARD_WIDTH][BOARD_HEIGTH])
+void drawMatrix()
 {
 	int i;
-	for (int j = 0; j < BOARD_HEIGTH; j++)
+	for (int j = 0; j < BOARD_HEIGHT; j++)
 		for (i = 0; i < BOARD_WIDTH; i++)
 			drawSquare(matrix[i][j], matrix[i][j].c);
 }
@@ -238,7 +238,7 @@ void drawBoard()
 	gfx_line(RIGHT_X + 1, TOP_Y, RIGHT_X + 1, BOTTOM_Y, YELLOW);
 }
 
-void addToMatrix(Piece* piece, Square matrix[][BOARD_HEIGTH])
+void addToMatrix(Piece* piece)
 {
 	int i;
 	for (int j = 0; j < 4; j++)
@@ -250,12 +250,12 @@ void addToMatrix(Piece* piece, Square matrix[][BOARD_HEIGTH])
 										 piece->arr[i][j].y1, &iSquare,
 										 &jSquare);
 				if (iSquare > -1 && iSquare < BOARD_WIDTH && jSquare > -1 &&
-					jSquare < BOARD_HEIGTH)
+					jSquare < BOARD_HEIGHT)
 					matrix[iSquare][jSquare].c = piece->arr[i][j].c;
 			}
 }
 
-void moveDown(Piece* piece, Piece* next, Square matrix[][BOARD_HEIGTH])
+int moveDown(Piece* piece, Piece* next)
 {
 	int i;
 	for (int j = 0; j < 4; j++)
@@ -266,17 +266,17 @@ void moveDown(Piece* piece, Piece* next, Square matrix[][BOARD_HEIGTH])
 				transformCoordstoIndices(piece->arr[i][j].x1,
 										 piece->arr[i][j].y1, &iSquare,
 										 &jSquare);
-				if (jSquare == 0 || (jSquare < BOARD_HEIGTH &&
+				if (jSquare == 0 || (jSquare < BOARD_HEIGHT &&
 									 matrix[iSquare][jSquare - 1].c != 0)) {
-					addToMatrix(piece, matrix);
+					addToMatrix(piece);
 					drawMatrix(matrix);
 					*piece = *next;
 					placePiece(piece,
-							   matrix[BOARD_WIDTH / 2][BOARD_HEIGTH - 1].x1,
-							   matrix[BOARD_WIDTH / 2][BOARD_HEIGTH - 1].y1);
+							   matrix[BOARD_WIDTH / 2][BOARD_HEIGHT - 1].x1,
+							   matrix[BOARD_WIDTH / 2][BOARD_HEIGHT - 1].y1);
 					initPiece(next);
-					createPieceArray(next);
-					return;
+					placePiece(next, RIGHT_X + 4 * SQUARE_SIZE, SCREEN_HEIGHT / 2);
+					return 0;
 				}
 			}
 
@@ -286,9 +286,11 @@ void moveDown(Piece* piece, Piece* next, Square matrix[][BOARD_HEIGTH])
 			piece->arr[i][j].y2 += SQUARE_SIZE;
 		}
 	piece->yCenter += SQUARE_SIZE;
+
+	return 1;
 }
 
-void moveRight(Piece* piece, Square matrix[][BOARD_HEIGTH])
+void moveRight(Piece* piece)
 {
 	int i;
 	for (int j = 0; j < 4; j++)
@@ -300,7 +302,7 @@ void moveRight(Piece* piece, Square matrix[][BOARD_HEIGTH])
 										 piece->arr[i][j].y1, &iSquare,
 										 &jSquare);
 				if ((iSquare > -1 && iSquare < BOARD_WIDTH && jSquare > -1 &&
-					 jSquare < BOARD_HEIGTH) &&
+					 jSquare < BOARD_HEIGHT) &&
 					(iSquare == BOARD_WIDTH - 1 ||
 					 matrix[iSquare + 1][jSquare].c != 0))
 					return;
@@ -314,7 +316,7 @@ void moveRight(Piece* piece, Square matrix[][BOARD_HEIGTH])
 	piece->xCenter += SQUARE_SIZE;
 }
 
-void moveLeft(Piece* piece, Square matrix[][BOARD_HEIGTH])
+void moveLeft(Piece* piece)
 {
 	int i;
 	for (int j = 0; j < 4; j++)
@@ -326,7 +328,7 @@ void moveLeft(Piece* piece, Square matrix[][BOARD_HEIGTH])
 										 piece->arr[i][j].y1, &iSquare,
 										 &jSquare);
 				if ((iSquare > -1 && iSquare < BOARD_WIDTH && jSquare > -1 &&
-					 jSquare < BOARD_HEIGTH) &&
+					 jSquare < BOARD_HEIGHT) &&
 					(iSquare == 0 || matrix[iSquare - 1][jSquare].c != 0))
 					return;
 			}
@@ -339,15 +341,19 @@ void moveLeft(Piece* piece, Square matrix[][BOARD_HEIGTH])
 	piece->xCenter -= SQUARE_SIZE;
 }
 
-void rotate(Piece* piece, Square matrix[][BOARD_HEIGTH])
+void rotate(Piece* piece, int n)
 {
-	piece->rotation = (piece->rotation + 1) % 4;
+	piece->rotation = (piece->rotation + n) % 4;
 	int iCenter, jCenter;
 	findCenter(pieces[piece->kind][piece->rotation], &iCenter, &jCenter);
 	piece->xLeft = piece->xCenter - iCenter * SQUARE_SIZE;
 	piece->yTop = piece->yCenter - jCenter * SQUARE_SIZE;
 	createPieceArray(piece);
+}
 
+void checkRotate(Piece* piece)
+{
+	rotate(piece, 1);
 	int i;
 	for (int j = 0; j < 4; j++)
 		for (i = 0; i < 4; i++)
@@ -357,87 +363,49 @@ void rotate(Piece* piece, Square matrix[][BOARD_HEIGTH])
 					piece->arr[i][j].x2 > RIGHT_X ||
 					piece->arr[i][j].y1 < TOP_Y ||
 					piece->arr[i][j].y2 > BOTTOM_Y)
-					goto go_back;
+					rotate(piece, 3);
 
 				int iSquare, jSquare;
 				transformCoordstoIndices(piece->arr[i][j].x1,
 										 piece->arr[i][j].y1, &iSquare,
 										 &jSquare);
 
-				if (matrix[iSquare][jSquare].c != 0)
-					goto go_back;
+				if ((iSquare > -1 && iSquare < BOARD_WIDTH && jSquare > -1 &&
+					 jSquare < BOARD_HEIGHT) && matrix[iSquare][jSquare].c != 0)
+					rotate(piece, 3);
 			}
-	return;
-
-go_back:
-	piece->rotation = (piece->rotation + 3) % 4;
-	findCenter(pieces[piece->kind][piece->rotation], &iCenter, &jCenter);
-	piece->xLeft = piece->xCenter - iCenter * SQUARE_SIZE;
-	piece->yTop = piece->yCenter - jCenter * SQUARE_SIZE;
-	createPieceArray(piece);
 }
 
-void drop(Piece* piece, Piece* next, Square matrix[][BOARD_HEIGTH])
+void drop(Piece* piece, Piece* next)
 {
-	while (1) {
-		int i;
-		for (int j = 0; j < 4; j++)
-			for (i = 0; i < 4; i++)
-				if (piece->arr[i][j].c != 0) {
-					int iSquare;
-					int jSquare;
-					transformCoordstoIndices(piece->arr[i][j].x1,
-											 piece->arr[i][j].y1, &iSquare,
-											 &jSquare);
-					if (jSquare == 0 || (jSquare < BOARD_HEIGTH &&
-										 matrix[iSquare][jSquare - 1].c != 0)) {
-						addToMatrix(piece, matrix);
-						drawMatrix(matrix);
-						*piece = *next;
-						placePiece(
-							piece, matrix[BOARD_WIDTH / 2][BOARD_HEIGTH - 1].x1,
-							matrix[BOARD_WIDTH / 2][BOARD_HEIGTH - 1].y1);
-						initPiece(next);
-						createPieceArray(next);
-						return;
-					}
-				}
-
-		for (int j = 0; j < 4; j++)
-			for (i = 0; i < 4; i++) {
-				piece->arr[i][j].y1 += SQUARE_SIZE;
-				piece->arr[i][j].y2 += SQUARE_SIZE;
-			}
-		piece->yCenter += SQUARE_SIZE;
-	}
+	while (moveDown(piece, next));
 }
 
-void takeUserInput(Piece* piece, Piece* next, Square matrix[][BOARD_HEIGTH],
-				   int* isSpacebarOn, int* isDownOn)
+void takeUserInput(Piece* piece, Piece* next, int* isSpacebarOn, int* isDownOn)
 {
 	if (gfx_isKeyDown(SDLK_RIGHT)) {
-		moveRight(piece, matrix);
+		moveRight(piece);
 	}
 	if (gfx_isKeyDown(SDLK_LEFT)) {
-		moveLeft(piece, matrix);
+		moveLeft(piece);
 	}
 	if (gfx_isKeyDown(SDLK_DOWN) && !*isDownOn) {
-		drop(piece, next, matrix);
+		drop(piece, next);
 		*isDownOn = 1;
 	}
 	if (gfx_isKeyDown(SDLK_SPACE) && !*isSpacebarOn) {
-		rotate(piece, matrix);
+		checkRotate(piece);
 		*isSpacebarOn = 1;
 	}
 }
 
-void clearRow(Square matrix[][BOARD_HEIGTH], int y)
+void clearRow(int y)
 {
 	for (int i = 0; i < BOARD_WIDTH; i++)
 		matrix[i][y].c = 0;
 
 	int i = 0;
-	for (int j = y + 1; j < BOARD_HEIGTH; j++)
+	for (int j = y + 1; j < BOARD_HEIGHT; j++)
 		for (i = 0; i < BOARD_WIDTH; i++) {
 			enum color temp;
 			temp = matrix[i][j].c;
@@ -446,10 +414,10 @@ void clearRow(Square matrix[][BOARD_HEIGTH], int y)
 		}
 }
 
-void checkRows(Square matrix[][BOARD_HEIGTH])
+void checkRows()
 {
 	int i;
-	for (int j = 0; j < BOARD_HEIGTH; j++) {
+	for (int j = 0; j < BOARD_HEIGHT; j++) {
 		int isRowFull = 1;
 		for (i = 0; i < BOARD_WIDTH; i++)
 			if (matrix[i][j].c == 0) {
@@ -457,17 +425,17 @@ void checkRows(Square matrix[][BOARD_HEIGTH])
 				break;
 			}
 		if (isRowFull) {
-			clearRow(matrix, j);
+			clearRow(j);
 			j--;
 		}
 	}
 }
 
-int makeEndScreen(Square matrix[][BOARD_HEIGTH])
+int makeEndScreen()
 {
 	int isGameOver = 0;
 	for (int i = 0; i < BOARD_WIDTH; i++)
-		if (matrix[i][BOARD_HEIGTH - 1].c != 0) {
+		if (matrix[i][BOARD_HEIGHT - 1].c != 0) {
 			isGameOver = 1;
 			break;
 		}
