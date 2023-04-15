@@ -94,7 +94,8 @@ void addToMatrix(Piece* piece);
 void moveDown(Piece* piece, Piece* next);
 void moveRight(Piece* piece);
 void moveLeft(Piece* piece);
-void rotate(Piece* piece);
+void rotate(Piece* piece, int n);
+void checkRotate(Piece* piece);
 void drop(Piece* piece, Piece* next);
 void takeUserInput(Piece* piece, Piece* next,
 				   int* isSpacebarOn, int* isDownOn);
@@ -342,15 +343,18 @@ void moveLeft(Piece* piece)
 	piece->xCenter -= SQUARE_SIZE;
 }
 
-void rotate(Piece* piece)
-{
-	piece->rotation = (piece->rotation + 1) % 4;
+void rotate(Piece* piece, int n) {
+	piece->rotation = (piece->rotation + n) % 4;
 	int iCenter, jCenter;
 	findCenter(pieces[piece->kind][piece->rotation], &iCenter, &jCenter);
 	piece->xLeft = piece->xCenter - iCenter * SQUARE_SIZE;
 	piece->yTop = piece->yCenter - jCenter * SQUARE_SIZE;
 	createPieceArray(piece);
+}
 
+void checkRotate(Piece* piece)
+{
+	rotate(piece, 1);	
 	int i;
 	for (int j = 0; j < 4; j++)
 		for (i = 0; i < 4; i++)
@@ -360,7 +364,7 @@ void rotate(Piece* piece)
 					piece->arr[i][j].x2 > RIGHT_X ||
 					piece->arr[i][j].y1 < TOP_Y ||
 					piece->arr[i][j].y2 > BOTTOM_Y)
-					goto go_back;
+					rotate(piece, 3);
 
 				int iSquare, jSquare;
 				transformCoordstoIndices(piece->arr[i][j].x1,
@@ -368,16 +372,8 @@ void rotate(Piece* piece)
 										 &jSquare);
 
 				if (matrix[iSquare][jSquare].c != 0)
-					goto go_back;
+					rotate(piece, 3);
 			}
-	return;
-
-go_back:
-	piece->rotation = (piece->rotation + 3) % 4;
-	findCenter(pieces[piece->kind][piece->rotation], &iCenter, &jCenter);
-	piece->xLeft = piece->xCenter - iCenter * SQUARE_SIZE;
-	piece->yTop = piece->yCenter - jCenter * SQUARE_SIZE;
-	createPieceArray(piece);
 }
 
 void drop(Piece* piece, Piece* next)
@@ -429,7 +425,7 @@ void takeUserInput(Piece* piece, Piece* next,
 		*isDownOn = 1;
 	}
 	if (gfx_isKeyDown(SDLK_SPACE) && !*isSpacebarOn) {
-		rotate(piece);
+		checkRotate(piece);
 		*isSpacebarOn = 1;
 	}
 }
