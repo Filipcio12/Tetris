@@ -275,7 +275,8 @@ int moveDown(Piece* piece, Piece* next)
 							   matrix[BOARD_WIDTH / 2][BOARD_HEIGHT - 1].x1,
 							   matrix[BOARD_WIDTH / 2][BOARD_HEIGHT - 1].y1);
 					initPiece(next);
-					placePiece(next, RIGHT_X + 4 * SQUARE_SIZE, SCREEN_HEIGHT / 2);
+					placePiece(next, RIGHT_X + 4 * SQUARE_SIZE,
+							   SCREEN_HEIGHT / 2);
 					return 0;
 				}
 			}
@@ -371,14 +372,16 @@ void checkRotate(Piece* piece)
 										 &jSquare);
 
 				if ((iSquare > -1 && iSquare < BOARD_WIDTH && jSquare > -1 &&
-					 jSquare < BOARD_HEIGHT) && matrix[iSquare][jSquare].c != 0)
+					 jSquare < BOARD_HEIGHT) &&
+					matrix[iSquare][jSquare].c != 0)
 					rotate(piece, 3);
 			}
 }
 
 void drop(Piece* piece, Piece* next)
 {
-	while (moveDown(piece, next));
+	while (moveDown(piece, next))
+		;
 }
 
 void takeUserInput(Piece* piece, Piece* next, int* isSpacebarOn, int* isDownOn)
